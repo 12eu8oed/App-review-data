@@ -1,0 +1,5 @@
+{
+  "name": "Play Store Review Exporter",
+  "description": "Fetch and export Google Play Store reviews to Excel files easily.",
+  "requestFramePermissions": []
+}
