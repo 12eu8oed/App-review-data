@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Download, Star, Loader2, AlertCircle, ExternalLink, Trash2, History, Filter, Calendar, ListOrdered } from 'lucide-react';
+import { Search, Download, Star, Loader2, AlertCircle, ExternalLink, Trash2, History, Filter, Calendar, ListOrdered, X, MessageSquare, ThumbsUp, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 
@@ -32,6 +32,7 @@ export default function App() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,7 +43,8 @@ export default function App() {
   const [ratingFilter, setRatingFilter] = useState<number | 'all'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
+  const [showCountPresets, setShowCountPresets] = useState(false);
 
   const [history, setHistory] = useState<string[]>(() => {
     const saved = localStorage.getItem('play-store-history');
@@ -223,16 +225,63 @@ export default function App() {
                       <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
                         <ListOrdered className="w-3.5 h-3.5" /> 수집 건수
                       </label>
-                      <select 
-                        value={fetchCount}
-                        onChange={(e) => setFetchCount(Number(e.target.value))}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
-                      >
-                        <option value={100}>100건</option>
-                        <option value={300}>300건</option>
-                        <option value={500}>500건</option>
-                        <option value={1000}>1000건</option>
-                      </select>
+                      <div className="relative">
+                        <input 
+                          type="number"
+                          value={fetchCount}
+                          onChange={(e) => setFetchCount(Math.max(1, Number(e.target.value)))}
+                          onFocus={() => setShowCountPresets(true)}
+                          className="w-full p-2.5 pr-20 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
+                          min="1"
+                          placeholder="예: 3125"
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          <span className="text-xs font-bold text-slate-400">건</span>
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowCountPresets(!showCountPresets);
+                            }}
+                            className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"
+                          >
+                            <ChevronDown className={`w-4 h-4 transition-transform ${showCountPresets ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+
+                        {/* Custom Dropdown List */}
+                        <AnimatePresence>
+                          {showCountPresets && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-20" 
+                                onClick={() => setShowCountPresets(false)} 
+                              />
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto custom-scrollbar"
+                              >
+                                {[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map((count) => (
+                                  <button
+                                    key={count}
+                                    type="button"
+                                    onClick={() => {
+                                      setFetchCount(count);
+                                      setShowCountPresets(false);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 hover:text-blue-600 transition-colors flex justify-between items-center"
+                                  >
+                                    <span className="font-medium">{count}건</span>
+                                    {fetchCount === count && <div className="w-1.5 h-1.5 bg-blue-600 rounded-full" />}
+                                  </button>
+                                ))}
+                              </motion.div>
+                            </>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </div>
 
                     {/* Rating Filter */}
@@ -382,11 +431,15 @@ export default function App() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedReviews.map((review) => (
-                        <tr key={review.id} className="hover:bg-slate-50/50 transition-colors">
+                        <tr 
+                          key={review.id} 
+                          className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
+                          onClick={() => setSelectedReview(review)}
+                        >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <img src={review.userImage} alt={review.userName} className="w-8 h-8 rounded-full bg-slate-200" referrerPolicy="no-referrer" />
-                              <span className="font-semibold text-sm">{review.userName}</span>
+                              <span className="font-semibold text-sm group-hover:text-blue-600 transition-colors">{review.userName}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -503,6 +556,121 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Review Detail Modal */}
+      <AnimatePresence>
+        {selectedReview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedReview(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
+                <div className="flex items-center gap-4">
+                  <img 
+                    src={selectedReview.userImage} 
+                    alt={selectedReview.userName} 
+                    className="w-12 h-12 rounded-full bg-slate-100 border-2 border-white shadow-sm" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div>
+                    <h3 className="font-bold text-lg leading-tight">{selectedReview.userName}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-0.5 text-amber-400">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`w-3.5 h-3.5 ${i < selectedReview.score ? 'fill-current' : 'text-slate-200'}`} />
+                        ))}
+                      </div>
+                      <span className="text-xs font-bold text-slate-400">•</span>
+                      <span className="text-xs font-medium text-slate-500">{selectedReview.date}</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedReview(null)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-8 overflow-y-auto custom-scrollbar">
+                <div className="space-y-8">
+                  {/* Review Text */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-4 text-blue-600">
+                      <MessageSquare className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase tracking-widest">리뷰 내용</span>
+                    </div>
+                    <p className="text-slate-700 leading-relaxed text-lg whitespace-pre-wrap">
+                      {selectedReview.text}
+                    </p>
+                    <div className="mt-6 flex items-center gap-4">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full text-slate-500">
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold">{selectedReview.thumbsUp}</span>
+                      </div>
+                      {selectedReview.version && (
+                        <div className="text-xs font-bold text-slate-400">
+                          Version: {selectedReview.version}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Developer Reply */}
+                  {selectedReview.replyText && (
+                    <div className="bg-blue-50/50 rounded-2xl p-6 border border-blue-100">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2 text-blue-700">
+                          <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <Download className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <span className="text-xs font-bold uppercase tracking-widest">개발자 답변</span>
+                        </div>
+                        <span className="text-xs font-medium text-blue-400">{selectedReview.replyDate}</span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed text-sm whitespace-pre-wrap">
+                        {selectedReview.replyText}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <a
+                  href={selectedReview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all text-sm flex items-center gap-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  스토어에서 보기
+                </a>
+                <button
+                  onClick={() => setSelectedReview(null)}
+                  className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all text-sm shadow-lg shadow-blue-100"
+                >
+                  확인
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
