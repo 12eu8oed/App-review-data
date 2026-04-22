@@ -1,5 +1,5 @@
 {
-  "name": "Play Store Review Exporter",
+  "name": "앱사용자 리뷰 데이터 추출기",
   "description": "Fetch and export Google Play Store reviews to Excel files easily.",
   "requestFramePermissions": []
 }
