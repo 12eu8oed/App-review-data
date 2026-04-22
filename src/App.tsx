@@ -43,6 +43,7 @@ export default function App() {
   const [ratingFilter, setRatingFilter] = useState<number | 'all'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [keywordFilter, setKeywordFilter] = useState('');
   const [showFilters, setShowFilters] = useState(true);
   const [showCountPresets, setShowCountPresets] = useState(false);
 
@@ -111,9 +112,12 @@ export default function App() {
         if (reviewDate > end) return false;
       }
 
+      // Keyword filter
+      if (keywordFilter && !review.text.toLowerCase().includes(keywordFilter.toLowerCase())) return false;
+
       return true;
     });
-  }, [reviews, ratingFilter, startDate, endDate]);
+  }, [reviews, ratingFilter, startDate, endDate, keywordFilter]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredReviews.length / pageSize);
@@ -321,6 +325,25 @@ export default function App() {
                           value={endDate}
                           onChange={(e) => setEndDate(e.target.value)}
                           className="flex-1 min-w-0 p-2 bg-slate-50 border border-slate-200 rounded-xl text-[11px] sm:text-xs outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Search Keyword */}
+                    <div className="space-y-2 lg:col-span-3">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <MessageSquare className="w-3.5 h-3.5" /> 특정 검색어 필터
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                          <Search className="w-3.5 h-3.5 text-slate-400" />
+                        </div>
+                        <input 
+                          type="text" 
+                          placeholder="리뷰 내용 중 포함된 단어를 입력하세요 (예: 오류, 배송, 디자인)"
+                          value={keywordFilter}
+                          onChange={(e) => setKeywordFilter(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
                         />
                       </div>
                     </div>
