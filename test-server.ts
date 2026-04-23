@@ -1,21 +1,11 @@
 import express from "express";
-import cors from "cors";
 import gplay from "google-play-scraper";
 import appStore from "app-store-scraper";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-
-// API routes
 app.get("/api/reviews", async (req, res) => {
   const { appId, lang = 'ko', country = 'kr', sort = 2, num = 100, storeType = 'play' } = req.query;
-
-  if (!appId) {
-    return res.status(400).json({ error: "appId is required" });
-  }
-
   try {
     if (storeType === 'apple') {
       const isNumeric = /^\d+$/.test(appId as string);
@@ -55,49 +45,40 @@ app.get("/api/reviews", async (req, res) => {
       
       return res.json({ data: formatted });
     }
-
-    // Default: Google Play
-    const reviews = await gplay.reviews({
-      appId: appId as string,
-      lang: lang as string,
-      country: country as string,
-      sort: Number(sort),
-      num: Number(num)
-    });
+    const reviews = await gplay.reviews({ appId: appId as string, num: Number(num) });
     res.json(reviews);
-  } catch (error: any) {
-    console.error("Error fetching reviews:", error);
-    res.status(500).json({ error: error.message || "Failed to fetch reviews" });
-  }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/api/app-info", async (req, res) => {
   const { appId, storeType = 'play', country = 'kr' } = req.query;
-  if (!appId) {
-    return res.status(400).json({ error: "appId is required" });
-  }
-  
   try {
     if (storeType === 'apple') {
       const isNumeric = /^\d+$/.test(appId as string);
       const targetId = isNumeric ? { id: appId as string } : { appId: appId as string };
       const info = await appStore.app({ ...targetId, country: country as string });
-      
-      return res.json({
-        title: info.title,
-        icon: info.icon,
-        developer: info.developer,
-        appId: info.appId,
-        storeUrl: info.url
-      });
+      return res.json({ title: info.title, icon: info.icon, developer: info.developer, appId: info.appId, storeUrl: info.url });
     }
-
-    // Default: Google Play
-    const info = await gplay.app({ appId: appId as string, lang: 'ko', country: country as string });
+    const info = await gplay.app({ appId: appId as string });
     res.json(info);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || "Failed to fetch app info" });
-  }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-export default app;
+const server = app.listen(3001, async () => {
+    try {
+        console.log("Fetching App info");
+        const infoRes = await fetch("http://127.0.0.1:3001/api/app-info?appId=378084485&storeType=apple");
+        console.log("INFO status:", infoRes.status);
+        console.log("INFO data:", await infoRes.json());
+        
+        console.log("Fetching Reviews");
+        const reviewsRes = await fetch("http://127.0.0.1:3001/api/reviews?appId=378084485&storeType=apple&num=100");
+        console.log("REVIEWS status:", reviewsRes.status);
+        const revData = await reviewsRes.json();
+        console.log("REVIEWS count:", revData?.data?.length);
+    } catch(e) {
+        console.error("Test fetch error:", e);
+    } finally {
+        server.close();
+    }
+});

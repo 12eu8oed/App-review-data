@@ -22,8 +22,13 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           icons: [
             {
-              src: 'icon.png',
-              sizes: '192x192 512x512',
+              src: '/icon.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: '/icon.png',
+              sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'
             }
