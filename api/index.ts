@@ -22,13 +22,14 @@ app.get("/api/reviews", async (req, res) => {
       const targetId = isNumeric ? { id: appId as string } : { appId: appId as string };
       const numPages = Math.min(10, Math.ceil(Number(num) / 50));
       let allReviews: any[] = [];
+      const appleSort = Number(sort) === 1 ? appStore.sort.HELPFUL : appStore.sort.RECENT;
       
       for (let i = 1; i <= numPages; i++) {
         try {
           const pageReviews = await appStore.reviews({
             ...targetId,
             country: country as string,
-            sort: appStore.sort.RECENT,
+            sort: appleSort,
             page: i
           });
           if (pageReviews && pageReviews.length > 0) {

@@ -62,6 +62,7 @@ export default function App() {
 
   // Filter States
   const [fetchCount, setFetchCount] = useState(100);
+  const [sortOrder, setSortOrder] = useState<number>(2); // 2: RECENT/NEWEST, 1: HELPFUL
   const [ratingFilter, setRatingFilter] = useState<number | 'all'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -121,7 +122,7 @@ export default function App() {
       setAppInfo({ ...infoData, storeType: activeStore });
 
       // Fetch Reviews
-      const reviewsRes = await fetch(`/api/reviews?appId=${encodeURIComponent(id)}&num=${fetchCount}&storeType=${activeStore}`);
+      const reviewsRes = await fetch(`/api/reviews?appId=${encodeURIComponent(id)}&num=${fetchCount}&storeType=${activeStore}&sort=${sortOrder}`);
       if (!reviewsRes.ok) throw new Error('리뷰를 가져오는데 실패했습니다.');
       const reviewsData = await reviewsRes.json();
       setReviews(reviewsData.data || reviewsData);
@@ -145,13 +146,20 @@ export default function App() {
     setCurrentPage(1);
     return reviews.filter(review => {
       if (ratingFilter !== 'all' && review.score !== ratingFilter) return false;
-      const reviewDate = new Date(review.date);
-      if (startDate && reviewDate < new Date(startDate)) return false;
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        if (reviewDate > end) return false;
+      
+      if (startDate || endDate) {
+        const rDate = new Date(review.date);
+        
+        if (startDate) {
+          const start = new Date(`${startDate}T00:00:00`);
+          if (rDate < start) return false;
+        }
+        if (endDate) {
+          const end = new Date(`${endDate}T23:59:59.999`);
+          if (rDate > end) return false;
+        }
       }
+
       if (keywordFilter && !review.text.toLowerCase().includes(keywordFilter.toLowerCase())) return false;
       return true;
     });
@@ -169,7 +177,7 @@ export default function App() {
       '스토어': appInfo?.storeType === 'apple' ? 'App Store' : 'Google Play',
       '작성자': r.userName,
       '평점': r.score,
-      '날짜': r.date,
+      '날짜': new Date(r.date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }),
       '제목': r.title || '',
       '내용': r.text,
       '버전': r.version || '',
@@ -358,43 +366,65 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* Rating Filter */}
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        <Star className="w-3.5 h-3.5" /> 평점 필터
-                      </label>
-                      <select 
-                        value={ratingFilter}
-                        onChange={(e) => setRatingFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
-                      >
-                        <option value="all">모든 평점</option>
-                        <option value={5}>5점만 보기</option>
-                        <option value={4}>4점만 보기</option>
-                        <option value={3}>3점만 보기</option>
-                        <option value={2}>2점만 보기</option>
-                        <option value={1}>1점만 보기</option>
-                      </select>
+                    {/* Rating Filter & Sort Order */}
+                    <div className="space-y-4">
+                      {/* Sort Order */}
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          <ListOrdered className="w-3.5 h-3.5" /> 수집 기준
+                        </label>
+                        <select 
+                          value={sortOrder}
+                          onChange={(e) => setSortOrder(Number(e.target.value))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
+                        >
+                          <option value={2}>최신순 (Recent)</option>
+                          <option value={1}>유용한 순 (Helpful)</option>
+                        </select>
+                      </div>
+
+                      {/* Rating Filter (moved inside same column wrapper) */}
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          <Star className="w-3.5 h-3.5" /> 평점 필터
+                        </label>
+                        <select 
+                          value={ratingFilter}
+                          onChange={(e) => setRatingFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
+                        >
+                          <option value="all">모든 평점</option>
+                          <option value={5}>5점만 보기</option>
+                          <option value={4}>4점만 보기</option>
+                          <option value={3}>3점만 보기</option>
+                          <option value={2}>2점만 보기</option>
+                          <option value={1}>1점만 보기</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Date Range */}
-                    <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                      <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        <Calendar className="w-3.5 h-3.5" /> 기간 설정
-                      </label>
-                      <div className="flex items-center gap-2 min-w-0">
+                    <div className="space-y-4 sm:col-span-2 lg:col-span-1">
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          <Calendar className="w-3.5 h-3.5" /> 시작일
+                        </label>
                         <input 
                           type="date" 
                           value={startDate}
                           onChange={(e) => setStartDate(e.target.value)}
-                          className="flex-1 min-w-0 p-2 bg-slate-50 border border-slate-200 rounded-xl text-[11px] sm:text-xs outline-none focus:border-blue-500"
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
                         />
-                        <span className="text-slate-400 shrink-0">~</span>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          <Calendar className="w-3.5 h-3.5" /> 종료일
+                        </label>
                         <input 
                           type="date" 
                           value={endDate}
                           onChange={(e) => setEndDate(e.target.value)}
-                          className="flex-1 min-w-0 p-2 bg-slate-50 border border-slate-200 rounded-xl text-[11px] sm:text-xs outline-none focus:border-blue-500"
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
                         />
                       </div>
                     </div>
@@ -549,7 +579,9 @@ export default function App() {
                             </p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-xs font-medium text-slate-500">{review.date}</span>
+                            <span className="text-xs font-medium text-slate-500">
+                              {new Date(review.date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                            </span>
                           </td>
                         </tr>
                       ))}
@@ -686,7 +718,9 @@ export default function App() {
                         ))}
                       </div>
                       <span className="text-xs font-bold text-slate-400">•</span>
-                      <span className="text-xs font-medium text-slate-500">{selectedReview.date}</span>
+                      <span className="text-xs font-medium text-slate-500">
+                        {new Date(selectedReview.date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                      </span>
                     </div>
                   </div>
                 </div>
