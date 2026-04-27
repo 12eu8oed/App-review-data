@@ -174,7 +174,6 @@ export default function App() {
   const exportToExcel = () => {
     if (filteredReviews.length === 0) return;
     const data = filteredReviews.map(r => ({
-      '스토어': appInfo?.storeType === 'apple' ? 'App Store' : 'Google Play',
       '작성자': r.userName,
       '평점': r.score,
       '날짜': new Date(r.date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }),
@@ -266,10 +265,11 @@ export default function App() {
               <div className="absolute right-2 top-2 bottom-2 flex gap-2">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px-3 rounded-xl border-2 transition-all flex items-center gap-2 font-semibold text-sm ${showFilters ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'}`}
+                  className={`px-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-2 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500/50 active:scale-95 ${showFilters ? 'bg-slate-100 border-slate-300 text-slate-800 shadow-inner' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 shadow-sm'}`}
                 >
-                  <Filter className="w-4 h-4" />
+                  <Filter className={`w-4 h-4 ${showFilters ? 'text-slate-600' : 'text-slate-400'}`} />
                   필터
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${showFilters ? 'rotate-180 text-slate-500' : 'text-slate-400'}`} />
                 </button>
                 <button
                   onClick={() => fetchReviews()}
@@ -537,6 +537,51 @@ export default function App() {
                     <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-tighter">
                       전체 {reviews.length}건 중 {filteredReviews.length}건 필터링됨
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Summary Dashboard */}
+              {filteredReviews.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Total Count */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-center items-center text-center">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">필터링된 리뷰 수</span>
+                    <div className="text-4xl font-black text-slate-800 tracking-tight">
+                      {filteredReviews.length.toLocaleString()}<span className="text-lg text-slate-400 font-medium ml-1">건</span>
+                    </div>
+                  </div>
+
+                  {/* Average Score */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-center items-center text-center">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">평균 별점</span>
+                    <div className="text-4xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                      {(filteredReviews.reduce((acc, curr) => acc + curr.score, 0) / filteredReviews.length).toFixed(1)}
+                      <Star className="w-6 h-6 text-amber-400 fill-current" />
+                    </div>
+                  </div>
+
+                  {/* Rating Distribution */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-center">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 text-center">별점 분포</span>
+                    <div className="space-y-2">
+                      {[5, 4, 3, 2, 1].map(score => {
+                        const count = filteredReviews.filter(r => r.score === score).length;
+                        const percentage = filteredReviews.length > 0 ? (count / filteredReviews.length) * 100 : 0;
+                        return (
+                          <div key={score} className="flex items-center gap-2 text-xs">
+                            <div className="w-4 font-bold text-slate-500 text-right shrink-0">{score}</div>
+                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-amber-400 rounded-full" 
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                            <div className="w-8 text-slate-400 text-right shrink-0">{count}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
