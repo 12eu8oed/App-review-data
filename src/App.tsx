@@ -541,10 +541,11 @@ export default function App() {
                 </div>
               )}
 
-              {/* Summary Dashboard */}
+              {/* [UPDATE] 리뷰 요약 대시보드 (Summary Dashboard) - Vercel 배포 반영 확인용 주석 추가됨 */}
+              {/* Vercel 배포 시, 이 영역의 UI 업데이트 내용(통계 요약, 평균 별점, 별점 분포)이 정상적으로 렌더링 되어야 합니다. */}
               {filteredReviews.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Total Count */}
+                  {/* Total Count: 필터링된 리뷰의 총 건수를 표시하는 구역 */}
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-center items-center text-center">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">필터링된 리뷰 수</span>
                     <div className="text-4xl font-black text-slate-800 tracking-tight">
@@ -552,7 +553,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Average Score */}
+                  {/* Average Score: 필터링된 리뷰들의 평균 별점(스코어)을 소수점 첫째 자리까지 표시하는 구역 */}
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-center items-center text-center">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">평균 별점</span>
                     <div className="text-4xl font-black text-slate-800 tracking-tight flex items-center gap-2">
@@ -561,7 +562,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Rating Distribution */}
+                  {/* Rating Distribution: 각 별점(5~1점)별 분포를 시각적 바 게이지로 보여주는 구역 */}
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-center">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 text-center">별점 분포</span>
                     <div className="space-y-2">
