@@ -122,10 +122,61 @@ export default function App() {
       setAppInfo({ ...infoData, storeType: activeStore });
 
       // Fetch Reviews
-      const reviewsRes = await fetch(`/api/reviews?appId=${encodeURIComponent(id)}&num=${fetchCount}&storeType=${activeStore}&sort=${sortOrder}`);
-      if (!reviewsRes.ok) throw new Error('리뷰를 가져오는데 실패했습니다.');
-      const reviewsData = await reviewsRes.json();
-      setReviews(reviewsData.data || reviewsData);
+      let fetchedReviews = [];
+      if (activeStore === 'apple') {
+        const numericId = infoData.numericId || infoData.appId || id;
+        const numPages = Math.min(10, Math.ceil(Number(fetchCount) / 50));
+        const appleSort = Number(sortOrder) === 1 ? 'mostHelpful' : 'mostRecent';
+        
+        let allAppleReviews: any[] = [];
+        for (let i = 1; i <= Math.max(1, numPages); i++) {
+          try {
+            const url = `https://itunes.apple.com/kr/rss/customerreviews/page=${i}/id=${numericId}/sortby=${appleSort}/json`;
+            const rssRes = await fetch(url);
+            if (!rssRes.ok) break;
+            const rssData = await rssRes.json();
+            const entries = rssData?.feed?.entry;
+            if (!entries) break;
+            const entriesArr = Array.isArray(entries) ? entries : [entries];
+            const formatted = entriesArr.map((r: any) => ({
+              id: r.id?.label || String(Math.random()),
+              userName: r.author?.name?.label || 'Unknown',
+              userImage: 'https://www.apple.com/apple-touch-icon.png',
+              date: r.updated?.label || new Date().toISOString(),
+              score: parseInt(r['im:rating']?.label || '5'),
+              scoreText: r['im:rating']?.label || '5',
+              url: r.link?.attributes?.href || '',
+              title: r.title?.label || '',
+              text: r.content?.label || '',
+              replyDate: '',
+              replyText: '',
+              version: r['im:version']?.label || '',
+              thumbsUp: 0
+            }));
+            allAppleReviews = allAppleReviews.concat(formatted);
+          } catch(e) {
+            console.error('Client-side App Store fetch error:', e);
+            break;
+          }
+        }
+        
+        if (allAppleReviews.length > 0) {
+           fetchedReviews = allAppleReviews.slice(0, Number(fetchCount));
+        } else {
+           // Fallback to Server if client-side gets blocked
+           const reviewsRes = await fetch(`/api/reviews?appId=${encodeURIComponent(id)}&num=${fetchCount}&storeType=${activeStore}&sort=${sortOrder}`);
+           if (!reviewsRes.ok) throw new Error('앱스토어 리뷰를 가져오는데 실패했습니다.');
+           const reviewsData = await reviewsRes.json();
+           fetchedReviews = reviewsData.data || reviewsData;
+        }
+      } else {
+        const reviewsRes = await fetch(`/api/reviews?appId=${encodeURIComponent(id)}&num=${fetchCount}&storeType=${activeStore}&sort=${sortOrder}`);
+        if (!reviewsRes.ok) throw new Error('구글 플레이 리뷰를 가져오는데 실패했습니다.');
+        const reviewsData = await reviewsRes.json();
+        fetchedReviews = reviewsData.data || reviewsData;
+      }
+      
+      setReviews(fetchedReviews);
 
       // Update History
       const historyItem = { id, store: activeStore };
