@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Search, Download, Star, Loader2, AlertCircle, ExternalLink, Trash2, History, Filter, Calendar, ListOrdered, X, MessageSquare, ThumbsUp, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
@@ -53,6 +53,8 @@ export default function App() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   
@@ -109,10 +111,39 @@ export default function App() {
     }
 
     setLoading(true);
+    setLoadingProgress(0);
     setError(null);
+
+    // Smooth scroll to results/loading section
+    setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+
     setReviews([]);
     setAppInfo(null);
     setCurrentPage(1);
+
+    const estimatedSeconds = activeStore === 'apple' ? (Number(fetchCount) / 40) : (Number(fetchCount) / 500);
+    const intervalMs = Math.max(80, (estimatedSeconds * 1000) / 100);
+    
+    const progressInterval = setInterval(() => {
+      setLoadingProgress(prev => {
+        if (prev >= 99) return prev;
+        
+        let increment = 0;
+        if (prev < 30) {
+          increment = Math.random() * 5 + 3; // Fast start
+        } else if (prev < 80) {
+          increment = Math.random() * 2 + 0.5; // Normal middle
+        } else if (prev < 95) {
+          increment = Math.random() * 0.5 + 0.1; // Slow down
+        } else {
+          increment = 0.05; // Very slow near the end to keep it moving
+        }
+        
+        return Math.min(99, prev + increment);
+      });
+    }, intervalMs);
 
     try {
       // Fetch App Info
@@ -124,50 +155,69 @@ export default function App() {
       // Fetch Reviews
       let fetchedReviews = [];
       if (activeStore === 'apple') {
-        const numericId = infoData.numericId || infoData.appId || id;
-        const numPages = Math.min(10, Math.ceil(Number(fetchCount) / 50));
-        const appleSort = Number(sortOrder) === 1 ? 'mostHelpful' : 'mostRecent';
-        
-        let allAppleReviews: any[] = [];
-        for (let i = 1; i <= Math.max(1, numPages); i++) {
-          try {
-            const url = `https://itunes.apple.com/kr/rss/customerreviews/page=${i}/id=${numericId}/sortby=${appleSort}/json`;
-            const rssRes = await fetch(url);
-            if (!rssRes.ok) break;
-            const rssData = await rssRes.json();
-            const entries = rssData?.feed?.entry;
-            if (!entries) break;
-            const entriesArr = Array.isArray(entries) ? entries : [entries];
-            const formatted = entriesArr.map((r: any) => ({
-              id: r.id?.label || String(Math.random()),
-              userName: r.author?.name?.label || 'Unknown',
-              userImage: 'https://www.apple.com/apple-touch-icon.png',
-              date: r.updated?.label || new Date().toISOString(),
-              score: parseInt(r['im:rating']?.label || '5'),
-              scoreText: r['im:rating']?.label || '5',
-              url: r.link?.attributes?.href || '',
-              title: r.title?.label || '',
-              text: r.content?.label || '',
-              replyDate: '',
-              replyText: '',
-              version: r['im:version']?.label || '',
-              thumbsUp: 0
-            }));
-            allAppleReviews = allAppleReviews.concat(formatted);
-          } catch(e) {
-            console.error('Client-side App Store fetch error:', e);
-            break;
-          }
-        }
-        
-        if (allAppleReviews.length > 0) {
-           fetchedReviews = allAppleReviews.slice(0, Number(fetchCount));
-        } else {
-           // Fallback to Server if client-side gets blocked
+        // App Store의 경우 RSS는 500개가 한계이므로, 그 이상은 서버 스크래핑 유도
+        if (Number(fetchCount) > 500) {
            const reviewsRes = await fetch(`/api/reviews?appId=${encodeURIComponent(id)}&num=${fetchCount}&storeType=${activeStore}&sort=${sortOrder}`);
            if (!reviewsRes.ok) throw new Error('앱스토어 리뷰를 가져오는데 실패했습니다.');
            const reviewsData = await reviewsRes.json();
            fetchedReviews = reviewsData.data || reviewsData;
+        } else {
+          const numericId = infoData.numericId || infoData.appId || id;
+          const numPages = Math.min(10, Math.ceil(Number(fetchCount) / 50));
+          const appleSort = Number(sortOrder) === 1 ? 'mostHelpful' : 'mostRecent';
+          
+          let allAppleReviews: any[] = [];
+          for (let i = 1; i <= Math.max(1, numPages); i++) {
+            try {
+              const url = `https://itunes.apple.com/kr/rss/customerreviews/page=${i}/id=${numericId}/sortBy=${appleSort}/xml`;
+              const rssRes = await fetch(url);
+              if (!rssRes.ok) break;
+              const xmlText = await rssRes.text();
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+              const entries = Array.from(xmlDoc.querySelectorAll('entry'));
+              if (entries.length === 0) break;
+              
+              const formatted = entries.map(entry => {
+                const getTag = (name: string) => entry.getElementsByTagName(name)[0]?.textContent?.trim() || '';
+                // Since some tags use the im: namespace, querySelector handles them with simple nodeName occasionally, but getElementsByTagName is safer
+                const getNsTag = (name: string) => 
+                  entry.getElementsByTagNameNS('*', name)[0]?.textContent?.trim() || 
+                  entry.getElementsByTagName(`im:${name}`)[0]?.textContent?.trim() || 
+                  '';
+                  
+                return {
+                  id: getTag('id') || String(Math.random()),
+                  userName: entry.querySelector('author > name')?.textContent?.trim() || 'Unknown',
+                  userImage: 'https://www.apple.com/apple-touch-icon.png',
+                  date: getTag('updated') || new Date().toISOString(),
+                  score: parseInt(getNsTag('rating') || '5'),
+                  scoreText: getNsTag('rating') || '5',
+                  url: entry.querySelector('link[rel="related"]')?.getAttribute('href') || '',
+                  title: getTag('title') || '',
+                  text: entry.querySelector('content[type="text"]')?.textContent?.trim() || '',
+                  replyDate: '',
+                  replyText: '',
+                  version: getNsTag('version') || '',
+                  thumbsUp: 0
+                };
+              });
+              allAppleReviews = allAppleReviews.concat(formatted);
+            } catch(e) {
+              console.error('Client-side App Store fetch error:', e);
+              break;
+            }
+          }
+          
+          if (allAppleReviews.length > 0) {
+             fetchedReviews = allAppleReviews.slice(0, Number(fetchCount));
+          } else {
+             // Fallback to Server if client-side gets blocked
+             const reviewsRes = await fetch(`/api/reviews?appId=${encodeURIComponent(id)}&num=${fetchCount}&storeType=${activeStore}&sort=${sortOrder}`);
+             if (!reviewsRes.ok) throw new Error('앱스토어 리뷰를 가져오는데 실패했습니다.');
+             const reviewsData = await reviewsRes.json();
+             fetchedReviews = reviewsData.data || reviewsData;
+          }
         }
       } else {
         const reviewsRes = await fetch(`/api/reviews?appId=${encodeURIComponent(id)}&num=${fetchCount}&storeType=${activeStore}&sort=${sortOrder}`);
@@ -188,7 +238,13 @@ export default function App() {
     } catch (err: any) {
       setError(err.message || '오류가 발생했습니다.');
     } finally {
-      setLoading(false);
+      clearInterval(progressInterval);
+      setLoadingProgress(100);
+      // Reduce delay to 200ms for snappier feeling
+      setTimeout(() => {
+        setLoading(false);
+        setLoadingProgress(0);
+      }, 200);
     }
   };
 
@@ -353,13 +409,11 @@ export default function App() {
                           value={fetchCount}
                           onChange={(e) => {
                             let value = Math.max(1, Number(e.target.value));
-                            if (storeType === 'apple' && value > 500) value = 500;
                             setFetchCount(value);
                           }}
                           onFocus={() => setShowCountPresets(true)}
                           className="w-full p-2.5 pr-20 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
                           min="1"
-                          max={storeType === 'apple' ? "500" : undefined}
                           placeholder="예: 3125"
                         />
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -390,7 +444,7 @@ export default function App() {
                                 exit={{ opacity: 0, y: -10 }}
                                 className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto custom-scrollbar"
                               >
-                                {(storeType === 'apple' ? [100, 200, 300, 400, 500] : [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]).map((count) => (
+                                {(storeType === 'apple' ? [100, 500, 1000, 2000, 5000] : [100, 200, 300, 400, 500, 1000, 2000, 5000]).map((count) => (
                                   <button
                                     key={count}
                                     type="button"
@@ -410,9 +464,9 @@ export default function App() {
                         </AnimatePresence>
                       </div>
                       {storeType === 'apple' && (
-                        <p className="text-[10px] sm:text-xs text-blue-500/80 font-medium mt-1 leading-tight flex items-start gap-1">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                          애플 정책상 최대 500건만 수집 가능합니다.
+                        <p className="text-[10px] sm:text-xs text-blue-600/90 font-medium mt-1 leading-tight flex items-start gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-blue-500" />
+                          이제 앱스토어에서도 최대 1,000개 이상의 리뷰를 수집할 수 있습니다.
                         </p>
                       )}
                     </div>
@@ -548,6 +602,8 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <div ref={resultsRef} className="scroll-mt-24" />
 
         {/* Results Section */}
         <AnimatePresence>
@@ -760,11 +816,39 @@ export default function App() {
           </div>
         )}
 
-        {/* Loading Skeleton */}
+        {/* Loading State with Progress Bar */}
         {loading && (
-          <div className="space-y-6 animate-pulse">
-            <div className="h-32 bg-slate-200 rounded-2xl" />
-            <div className="h-96 bg-slate-100 rounded-2xl" />
+          <div className="py-20 text-center flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-200/60 shadow-xl shadow-slate-200/20 px-4 mt-8">
+            <div className="w-24 h-24 bg-blue-50/50 rounded-full flex items-center justify-center mx-auto mb-6 relative overflow-hidden ring-4 ring-white shadow-inner">
+               <motion.div 
+                 className="absolute bottom-0 left-0 right-0 bg-blue-100/80"
+                 initial={{ height: 0 }}
+                 animate={{ height: `${loadingProgress}%` }}
+                 transition={{ ease: "linear", duration: 0.2 }}
+               />
+              <Loader2 className="w-10 h-10 text-blue-600 animate-spin relative z-10" />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-800 tracking-tight">데이터를 추출하고 있습니다</h3>
+            <p className="text-slate-500 mt-3 max-w-sm leading-relaxed">
+              요청하신 리뷰 개수 및 스토어에 따라 수 초에서 수십 초가 소요될 수 있습니다. 잠시만 기다려주세요.
+            </p>
+            
+            <div className="w-full max-w-md mx-auto mt-10">
+              <div className="flex justify-between items-end mb-3 px-1">
+                <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider">추출 진행률</span>
+                <span className="text-3xl font-black text-blue-600 font-mono tracking-tighter">
+                  {Math.round(loadingProgress)}<span className="text-xl text-blue-400">%</span>
+                </span>
+              </div>
+              <div className="h-4 bg-slate-100 rounded-full overflow-hidden shrink-0 border border-slate-200/80 shadow-inner">
+                <motion.div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${loadingProgress}%` }}
+                  transition={{ ease: "linear", duration: 0.2 }}
+                />
+              </div>
+            </div>
           </div>
         )}
       </main>
