@@ -1,1 +1,172 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Astryx-inspired Pure CSS Custom Property Token System
+ * Cascade-driven theming across Neutral, Stone, and Matcha palettes + Light/Dark modes
+ */
+:root {
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Nested Radius Math: inner = container - padding */
+  --radius-inner: 6px;
+  --radius-element: 8px;
+  --radius-container: 12px;
+  --radius-page: 16px;
+
+  /* Neutral Theme (Light - Default) */
+  --color-bg-body: #f8f9fb;
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: #f1f3f6;
+  --color-bg-hover: #eaeef3;
+
+  --color-text-primary: #111418;
+  --color-text-secondary: #4a525d;
+  --color-text-muted: #6f7785;
+
+  --color-border: #e2e6ec;
+  --color-border-strong: #cdd3dc;
+
+  --color-accent: #0064e0;
+  --color-accent-hover: #0052b8;
+  --color-accent-subtle: #ebf3fe;
+  --color-on-accent: #ffffff;
+
+  --color-success: #15803d;
+  --color-success-subtle: #ecfdf3;
+  --color-warning: #b45309;
+  --color-warning-subtle: #fffbeb;
+  --color-error: #b91c1c;
+  --color-error-subtle: #fef2f2;
+  --color-star: #d97706;
+}
+
+.dark {
+  --color-bg-body: #0c0e12;
+  --color-bg-surface: #14171d;
+  --color-bg-subtle: #1c2028;
+  --color-bg-hover: #242933;
+
+  --color-text-primary: #f1f3f5;
+  --color-text-secondary: #b4bcc7;
+  --color-text-muted: #848d9b;
+
+  --color-border: #262b35;
+  --color-border-strong: #373e4c;
+
+  --color-accent: #4b93ff;
+  --color-accent-hover: #6aa7ff;
+  --color-accent-subtle: rgba(75, 147, 255, 0.14);
+  --color-on-accent: #071324;
+
+  --color-success: #4ade80;
+  --color-success-subtle: rgba(74, 222, 128, 0.12);
+  --color-warning: #fbbf24;
+  --color-warning-subtle: rgba(251, 191, 36, 0.12);
+  --color-error: #f87171;
+  --color-error-subtle: rgba(248, 113, 113, 0.12);
+  --color-star: #fbbf24;
+}
+
+/* Stone Theme */
+[data-theme="stone"] {
+  --color-bg-body: #f5f4f0;
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: #eceae3;
+  --color-bg-hover: #e3e0d7;
+
+  --color-text-primary: #1a1917;
+  --color-text-secondary: #524f49;
+  --color-text-muted: #78746c;
+
+  --color-border: #e1ded5;
+  --color-border-strong: #ccc8bd;
+
+  --color-accent: #2d2a26;
+  --color-accent-hover: #1a1816;
+  --color-accent-subtle: #e9e6de;
+  --color-on-accent: #faf9f6;
+}
+
+.dark[data-theme="stone"] {
+  --color-bg-body: #121110;
+  --color-bg-surface: #1b1917;
+  --color-bg-subtle: #24211e;
+  --color-bg-hover: #2d2a26;
+
+  --color-text-primary: #f2efe9;
+  --color-text-secondary: #c2bdb4;
+  --color-text-muted: #8e8980;
+
+  --color-border: #2e2b27;
+  --color-border-strong: #423e38;
+
+  --color-accent: #e5dfd5;
+  --color-accent-hover: #f5f1ea;
+  --color-accent-subtle: rgba(229, 223, 213, 0.12);
+  --color-on-accent: #161412;
+}
+
+/* Matcha Theme */
+[data-theme="matcha"] {
+  --color-bg-body: #f4f7f4;
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: #eaf0ea;
+  --color-bg-hover: #dfe8df;
+
+  --color-text-primary: #101913;
+  --color-text-secondary: #435447;
+  --color-text-muted: #697b6d;
+
+  --color-border: #dce4dc;
+  --color-border-strong: #c5d1c6;
+
+  --color-accent: #236446;
+  --color-accent-hover: #194d35;
+  --color-accent-subtle: #e5f1ea;
+  --color-on-accent: #ffffff;
+}
+
+.dark[data-theme="matcha"] {
+  --color-bg-body: #0c120e;
+  --color-bg-surface: #131b16;
+  --color-bg-subtle: #1b251e;
+  --color-bg-hover: #233027;
+
+  --color-text-primary: #edf3ee;
+  --color-text-secondary: #b0c0b4;
+  --color-text-muted: #7f9184;
+
+  --color-border: #233027;
+  --color-border-strong: #334538;
+
+  --color-accent: #52b788;
+  --color-accent-hover: #6cc99d;
+  --color-accent-subtle: rgba(82, 183, 136, 0.14);
+  --color-on-accent: #081710;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg-body);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
