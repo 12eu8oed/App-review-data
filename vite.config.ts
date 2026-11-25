@@ -13,6 +13,9 @@ export default defineConfig(({mode}) => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['icon.png'],
+        workbox: {
+          navigateFallbackDenylist: [/^\/api\//],
+        },
         manifest: {
           name: '앱사용자 리뷰 데이터 추출기',
           short_name: '리뷰추출기',

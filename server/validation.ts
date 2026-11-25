@@ -1,4 +1,4 @@
-import { StoreType } from './types.ts';
+import type { StoreType } from './types.ts';
 
 const SAFE_APP_ID_RE = /^[a-zA-Z0-9._-]+$/;
 const COUNTRY_RE = /^[a-z]{2}$/i;

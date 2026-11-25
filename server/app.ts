@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import cors from 'cors';
 import { fetchAppInfo, fetchReviews } from './reviewService.ts';
 import {
@@ -9,7 +10,7 @@ import {
   parseSort,
   parseStoreType,
 } from './validation.ts';
-import { ReviewsQuery } from './types.ts';
+import type { ReviewsQuery } from './types.ts';
 
 function parseReviewsQuery(req: Request): ReviewsQuery | null {
   const appId = parseAppId(req.query.appId);
@@ -44,6 +45,7 @@ export function createApiApp() {
       const info = await fetchAppInfo(appId, storeType, country);
       return res.json(info);
     } catch (error: any) {
+      console.error('Error fetching app info:', error);
       return res.status(500).json({
         error: error?.message || 'Failed to fetch app info',
       });
@@ -57,7 +59,11 @@ export function createApiApp() {
     }
 
     const controller = new AbortController();
-    req.on('close', () => controller.abort());
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        controller.abort();
+      }
+    });
 
     try {
       const data = await fetchReviews(query, undefined, controller.signal);
@@ -80,14 +86,17 @@ export function createApiApp() {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
 
     const controller = new AbortController();
     let closed = false;
 
-    req.on('close', () => {
-      closed = true;
-      controller.abort();
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        closed = true;
+        controller.abort();
+      }
     });
 
     const sendEvent = (event: string, payload: unknown) => {
@@ -107,6 +116,7 @@ export function createApiApp() {
         res.end();
       }
     } catch (error: any) {
+      console.error('Error streaming reviews:', error);
       if (!closed) {
         sendEvent('error', {
           error: error?.message || 'Failed to fetch reviews',
@@ -114,6 +124,12 @@ export function createApiApp() {
         res.end();
       }
     }
+  });
+
+  app.use((err: any, _req: Request, res: Response, _next: express.NextFunction) => {
+    console.error('Unhandled API error:', err);
+    if (res.headersSent) return;
+    res.status(500).json({ error: err?.message || 'Internal Server Error' });
   });
 
   return app;

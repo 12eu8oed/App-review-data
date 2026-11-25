@@ -2,7 +2,7 @@ import gplay from 'google-play-scraper';
 import appStore from 'app-store-scraper';
 import * as cheerio from 'cheerio';
 import { TtlCache } from './cache.ts';
-import {
+import type {
   AppInfoResponse,
   ProgressCallback,
   ReviewItem,
